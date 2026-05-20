@@ -1,0 +1,55 @@
+[project]
+name = "trip-planner-backend"
+version = "0.1.0"
+description = "Trip Planner backend: FastAPI + LangGraph + RAG"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "python-multipart>=0.0.12",
+    "httpx>=0.27.0",
+    "sse-starlette>=2.1.0",
+    "langgraph>=0.2.50",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+    "langsmith>=0.1.140",
+    "langchain-core>=0.3.15",
+    "langchain-openai>=0.2.10",
+    "langchain-mcp-adapters>=0.0.5",
+    "mcp>=1.0.0",
+    "openai>=1.54.0",
+    "qdrant-client>=1.12.0",
+    "selectolax>=0.3.20",
+    "scikit-learn>=1.5.0",
+    "numpy>=1.26.0",
+    "weasyprint>=62.3",
+    "markdown>=3.7",
+    "tenacity>=9.0.0",
+    "aiosqlite>=0.20.0",
+    "python-dotenv>=1.0.1",
+    "anyio>=4.6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-httpx>=0.32.0",
+    "ruff>=0.7.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

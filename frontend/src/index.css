@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: #1a3552;
+}
+
+.markdown-plan h1 {
+  @apply text-2xl font-bold text-ink mt-0 mb-3;
+}
+.markdown-plan h2 {
+  @apply text-xl font-semibold text-ink mt-6 mb-2 border-b border-slate-200 pb-1;
+}
+.markdown-plan h3 {
+  @apply text-base font-semibold text-ink mt-4 mb-2;
+}
+.markdown-plan p {
+  @apply my-2 leading-relaxed;
+}
+.markdown-plan blockquote {
+  @apply border-l-4 border-slate-300 bg-slate-50 px-3 py-2 my-3 text-slate-600;
+}
+.markdown-plan a {
+  @apply text-ink underline underline-offset-2;
+}
+.markdown-plan ul {
+  @apply list-disc pl-6 my-2 space-y-1;
+}
+.markdown-plan table {
+  @apply w-full border-collapse my-4 text-sm;
+}
+.markdown-plan th,
+.markdown-plan td {
+  @apply border border-slate-200 px-2 py-1 text-left;
+}
+.markdown-plan th {
+  @apply bg-slate-100;
+}
+.markdown-plan hr {
+  @apply my-3 border-slate-200 border-dashed;
+}

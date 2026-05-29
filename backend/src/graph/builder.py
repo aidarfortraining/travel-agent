@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from functools import lru_cache
 
+from langgraph.checkpoint.serde.base import maybe_add_typed_methods
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, START, StateGraph
+from pydantic import BaseModel
 
 from src.config import settings
 from src.graph.branches import budget_feasible, edit_or_accept, has_photo
@@ -76,6 +78,28 @@ _checkpointer_singleton: AsyncSqliteSaver | None = None
 _checkpointer_cm = None
 
 
+def _checkpoint_serde() -> JsonPlusSerializer:
+    """Serializer that explicitly allow-lists the project's pydantic models for
+    msgpack checkpoint (de)serialization.
+
+    LangGraph's default permissively allows unregistered types but logs a warning
+    ("will be blocked in a future version"). Registering them is the forward-
+    compatible fix. The allow-list is collected dynamically from the schemas
+    package plus TripState, so any new model is covered automatically. The wire
+    format is unchanged — this only governs which types are admitted on read, so
+    existing checkpoints remain readable.
+    """
+    import src.schemas as schemas
+
+    allowed: set[type] = {
+        obj
+        for obj in vars(schemas).values()
+        if isinstance(obj, type) and issubclass(obj, BaseModel)
+    }
+    allowed.add(TripState)
+    return JsonPlusSerializer(allowed_msgpack_modules=list(allowed))
+
+
 async def get_checkpointer() -> AsyncSqliteSaver:
     """Open / cache a single SqliteSaver async checkpointer."""
     global _checkpointer_singleton, _checkpointer_cm
@@ -84,6 +108,7 @@ async def get_checkpointer() -> AsyncSqliteSaver:
     settings.checkpoint_db_path.parent.mkdir(parents=True, exist_ok=True)
     _checkpointer_cm = AsyncSqliteSaver.from_conn_string(str(settings.checkpoint_db_path))
     _checkpointer_singleton = await _checkpointer_cm.__aenter__()
+    _checkpointer_singleton.serde = maybe_add_typed_methods(_checkpoint_serde())
     return _checkpointer_singleton
 
 

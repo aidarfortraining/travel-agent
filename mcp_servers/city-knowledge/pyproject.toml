@@ -4,7 +4,7 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.0.0",
-    "qdrant-client>=1.12.0",
+    "qdrant-client>=1.11.0,<1.12.0",  # match server image qdrant/qdrant:v1.11.0 (same major.minor)
     "openai>=1.54.0",
     "pydantic>=2.9.0",
 ]

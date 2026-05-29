@@ -231,7 +231,6 @@ trip-planner/
 ├── docs/
 │   ├── PROJECT_SPEC.md
 │   ├── ARCHITECTURE.md
-│   ├── IMPLEMENTATION_PLAN.md
 │   ├── MCP_SERVERS.md
 │   └── EVALS_PLAN.md
 │
@@ -429,7 +428,7 @@ config.py (env)
                             api/export.py
 ```
 
-**Порядок имплементации** (см. IMPLEMENTATION_PLAN.md):
+**Порядок имплементации** (исторический — проект уже собран):
 1. config + llm/client (hello world)
 2. Один MCP-сервер + один MCP-клиент
 3. RAG ingestion + qdrant_client

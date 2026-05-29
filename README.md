@@ -22,10 +22,9 @@
 1. [`CLAUDE.md`](./CLAUDE.md) — корневые инструкции для Claude Code
 2. [`docs/PROJECT_SPEC.md`](./docs/PROJECT_SPEC.md) — что строим, требования, tech stack
 3. [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — система, LangGraph, структура репо
-4. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — поэтапный план реализации
-5. [`docs/MCP_SERVERS.md`](./docs/MCP_SERVERS.md) — спеки трёх MCP-серверов
-6. [`docs/EVALS_PLAN.md`](./docs/EVALS_PLAN.md) — golden dataset, метрики, A/B
-7. [`skill/itinerary-formatter/SKILL.md`](./skill/itinerary-formatter/SKILL.md) — Skill проекта
+4. [`docs/MCP_SERVERS.md`](./docs/MCP_SERVERS.md) — спеки трёх MCP-серверов
+5. [`docs/EVALS_PLAN.md`](./docs/EVALS_PLAN.md) — golden dataset, метрики, A/B
+6. [`skill/itinerary-formatter/SKILL.md`](./skill/itinerary-formatter/SKILL.md) — Skill проекта
 
 ## Quick start
 
@@ -97,7 +96,7 @@ trip-planner/
 - **Пустой `OPENAI_BASE_URL=` в `.env`** — openai SDK падает с `httpx.UnsupportedProtocol`. Либо удалите строку, либо закомментируйте. Только укажите значение, если используете Azure/прокси.
 - **Hang на экране "Прогресс"** — должно быть исправлено. Признаки: события не доходят до frontend. Причины: либо browser-fragment в URL EventSource (исправлено отдельным параметром `streamKey`), либо nginx buffering (исправлено заголовком `X-Accel-Buffering: no`). Frontend имеет polling-fallback /state каждые 3с.
 - **Qdrant `Api key is used with an insecure connection`** — warning, не блокер. Возникает если `QDRANT_API_KEY` непустой а `QDRANT_URL` на http. Локально безопасно игнорировать.
-- **Qdrant `client v1.x incompatible with server v1.11`** — warning от qdrant-client, не блокер. Можно понизить клиент или игнорировать.
+- **Qdrant `client vX incompatible with server v1.11`** — устранено: `qdrant-client` запинен на `>=1.11.0,<1.12.0` (backend + city-knowledge) под server-образ `qdrant/qdrant:v1.11.0` — совпадение major.minor. Если поднимаете server-образ — синхронно поднимите и пин клиента.
 - **Overpass 504 / `get_weather_forecast` 502** — внешние API нестабильны. `travel-tools._overpass_query` крутит 5 попыток через 3 зеркала с backoff. Open-Meteo 502 — единичные, граф продолжает без weather для конкретного примера.
 - **Evals: `'CostBreakdown' object has no attribute 'get'`** — `evals/run.py` дампит `plan_cost_breakdown` через `model_dump()` (исправлено). Если падает с этой ошибкой — pull свежий main.
 - **Evals: `RuntimeError: no current event loop in thread 'ThreadPoolExecutor-1_0'`** — async-judge передан в sync `evaluate()`. В `evals/judges/__init__.py` sync-обёртки через `asyncio.run()` (исправлено).

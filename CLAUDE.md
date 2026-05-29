@@ -81,10 +81,9 @@ python evals/compare_experiments.py --a mini-41 --b mini-4o \
 
 1. `docs/PROJECT_SPEC.md` — что строим, требования, tech stack
 2. `docs/ARCHITECTURE.md` — компоненты, LangGraph-граф, структура репо
-3. `docs/IMPLEMENTATION_PLAN.md` — поэтапный план реализации
-4. `docs/MCP_SERVERS.md` — спеки трёх MCP-серверов
-5. `docs/EVALS_PLAN.md` — golden dataset и метрики
-6. `skill/itinerary-formatter/SKILL.md` — готовый Skill проекта
+3. `docs/MCP_SERVERS.md` — спеки трёх MCP-серверов
+4. `docs/EVALS_PLAN.md` — golden dataset и метрики
+5. `skill/itinerary-formatter/SKILL.md` — готовый Skill проекта
 
 ## Жёсткие ограничения (не отклоняться без явного разрешения)
 
@@ -120,13 +119,14 @@ python evals/compare_experiments.py --a mini-41 --b mini-4o \
 После реализации любого модуля:
 1. Запустить тесты в `backend/tests/` (если затронут backend).
 2. Проверить, что трейс появляется в LangSmith.
-3. Прогнать e2e-сценарий из `IMPLEMENTATION_PLAN.md` (Checkpoint того дня).
+3. Прогнать e2e-сценарий: форма → план → правка → accept → PDF.
 
 Не помечать задачу completed без всех трёх проверок.
 
 ## Известные ловушки
 
-- **`qdrant-client.search()` удалён в ≥1.18:** старый код в `city-knowledge/server.py` падал на `AttributeError`. Используем `query_points(query=vector, query_filter=..., limit=...)` и итерируем по `res.points` (а не по `res`).
+- **Qdrant: `query_points` (не `.search()`), клиент запинен под server.** `qdrant-client` запинен на `>=1.11.0,<1.12.0` (в `backend/pyproject.toml` И `mcp_servers/city-knowledge/pyproject.toml`) под server-образ `qdrant/qdrant:v1.11.0` — совпадение major.minor убирает incompat-warning. Весь код (`city-knowledge/server.py` И `backend/src/rag/qdrant_client.py`) использует `query_points(query=vector, query_filter=..., limit=...)` + итерацию по `res.points` (НЕ по `res`). `.search()` удалён в qdrant-client ≥1.18 — при апгрейде клиента не возвращайтесь к нему. Версии server и client менять синхронно.
+- **LangGraph checkpoint serde — регистрация pydantic-типов.** `builder._checkpoint_serde()` навешивает `JsonPlusSerializer(allowed_msgpack_modules=...)` со списком всех моделей из `src.schemas` + `TripState` (собирается динамически из пакета). Без этого LangGraph пишет warning "Deserializing unregistered type … will be blocked in a future version". Новые модели в `src.schemas` покрываются автоматически — но модель состояния ВНЕ `src.schemas` нужно добавить вручную, иначе будущая версия LangGraph заблокирует её десериализацию (это strict-mode: незарегистрированный тип → ошибка, не warning).
 - **Overpass нестабилен:** main endpoint регулярно отдаёт 504. `mcp_servers/travel-tools/_overpass_query` крутит 5 попыток через 3 зеркала (`overpass-api.de`, `overpass.kumi.systems`, `overpass.private.coffee`) с экспоненциальным backoff. НЕ ходить в Overpass без этой обёртки.
 - **`patch_plan` сохраняет rich-markdown на no-op:** если правка не удалила ни одного блока (например `target="музеи"` для дня без музеев), `_render_markdown` НЕ перезаписывает `state.plan_markdown` — иначе богатый LLM-вывод (погода/halal-маркеры/таблица/источники) теряется. Контролируется счётчиком `changed` из `_apply_remove`/`_apply_constrain`.
 - **`patch_plan` matcher по `TimeBlock.notes`, не по `place_type`:** generate_plan кладёт `p.category` ("museum"/"historical"/"park"...) в `TimeBlock.notes`. `_apply_remove` берёт cat из notes (а не из `place_type="attraction"`) — иначе тюркские/иностранные названия типа "Müzesi" не матчатся. Ключи `REMOVE_KEYWORDS` — стемы ("музе", "истори"), а не точные слова — покрывает плюрали и инфлекции.

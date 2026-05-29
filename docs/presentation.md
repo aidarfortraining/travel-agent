@@ -3,7 +3,6 @@
 **LLM-агент персонального планирования путешествий**
 
 Курс nFactorial — LLM Stack
-20 мая 2026
 
 ---
 
@@ -250,7 +249,7 @@ city-knowledge.search_city_guide(city, query, section?)
 
 ## What I'd do next
 
-**Если бы было ещё 48 часов:**
+**Следующие шаги:**
 1. **Fallback на gpt-4.1 (full)** при низкой confidence — для сложных случаев когда mini галлюцинирует
 2. **bge-reranker** поверх Qdrant — ожидаемый +5–10% к faithfulness
 3. **Расширение RAG до 10–15 городов** + автоматический индекс новых из user-запросов
@@ -262,8 +261,6 @@ city-knowledge.search_city_guide(city, query, section?)
 - CI/CD (учебный scope)
 - Semantic cache (mini-модель дешёвая, не нужно)
 - Voice / audio (out of scope)
-
-Дедлайн жёсткий — рабочий код > обсуждения.
 
 ---
 

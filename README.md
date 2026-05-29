@@ -4,7 +4,7 @@
 
 **Учебный проект** курса по LLM-стеку. Демонстрирует LangGraph, MCP, RAG, мультимодальность, LangSmith evals.
 
-**Статус (20 мая 2026):** готов к сдаче. Verified flow (через Playwright): форма → SSE-прогресс по 14 нодам графа → готовый план с реальными местами из OSM, halal-маркерами и погодой → текстовая правка → accept → PDF-экспорт. Evals прогнаны (`evals/results/ab_mini_41_vs_4o.md`).
+**Статус:** реализован и протестирован. Verified flow (через Playwright): форма → SSE-прогресс по 14 нодам графа → готовый план с реальными местами из OSM, halal-маркерами и погодой → текстовая правка → accept → PDF-экспорт. Evals прогнаны (`evals/results/ab_mini_41_vs_4o.md`).
 
 **A/B результаты (10 примеров):**
 
@@ -22,7 +22,7 @@
 1. [`CLAUDE.md`](./CLAUDE.md) — корневые инструкции для Claude Code
 2. [`docs/PROJECT_SPEC.md`](./docs/PROJECT_SPEC.md) — что строим, требования, tech stack
 3. [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) — система, LangGraph, структура репо
-4. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — почасовой план на 48 часов
+4. [`docs/IMPLEMENTATION_PLAN.md`](./docs/IMPLEMENTATION_PLAN.md) — поэтапный план реализации
 5. [`docs/MCP_SERVERS.md`](./docs/MCP_SERVERS.md) — спеки трёх MCP-серверов
 6. [`docs/EVALS_PLAN.md`](./docs/EVALS_PLAN.md) — golden dataset, метрики, A/B
 7. [`skill/itinerary-formatter/SKILL.md`](./skill/itinerary-formatter/SKILL.md) — Skill проекта
@@ -102,7 +102,3 @@ trip-planner/
 - **Evals: `'CostBreakdown' object has no attribute 'get'`** — `evals/run.py` дампит `plan_cost_breakdown` через `model_dump()` (исправлено). Если падает с этой ошибкой — pull свежий main.
 - **Evals: `RuntimeError: no current event loop in thread 'ThreadPoolExecutor-1_0'`** — async-judge передан в sync `evaluate()`. В `evals/judges/__init__.py` sync-обёртки через `asyncio.run()` (исправлено).
 - **Evals A/B compare: `Project mini-41 not found`** — LangSmith добавляет суффикс (`mini-41-8980574a`). `compare_experiments._resolve_project` ищет проект по `startswith(prefix)` (исправлено).
-
-## Дедлайн
-
-20 мая 2026, EOD.

@@ -115,8 +115,8 @@ def main() -> int:
         pdf = markdown_to_pdf_bytes("# Test\n\nHello **world**")
         assert pdf.startswith(b"%PDF") and len(pdf) > 500
         print(f"pdf: PASS ({len(pdf)} bytes)")
-    except OSError as e:
-        print(f"pdf: SKIP (native libs missing)")
+    except OSError:
+        print("pdf: SKIP (native libs missing)")
 
     print("\nALL OFFLINE TESTS PASS")
     return 0

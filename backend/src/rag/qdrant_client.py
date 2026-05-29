@@ -86,9 +86,10 @@ async def asearch(
     if kind:
         must.append(qm.FieldCondition(key="kind", match=qm.MatchValue(value=kind)))
     flt = qm.Filter(must=must)
-    res = cli.search(
+    # qdrant-client >= 1.18 removed `.search()`; use `query_points` and iterate `.points`.
+    res = cli.query_points(
         collection_name=settings.qdrant_collection,
-        query_vector=vector,
+        query=vector,
         query_filter=flt,
         limit=k,
         with_payload=True,
@@ -99,7 +100,7 @@ async def asearch(
             "score": float(r.score),
             **(r.payload or {}),
         }
-        for r in res
+        for r in res.points
     ]
 
 

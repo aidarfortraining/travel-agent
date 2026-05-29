@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import httpx
-from selectolax.parser import HTMLParser
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 # Detect layout: docker (/app/src) vs local (PROJECT_ROOT/backend/src)

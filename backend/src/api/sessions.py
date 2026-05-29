@@ -12,7 +12,7 @@ from src.api.runner import (
     resume_run,
     start_run,
 )
-from src.api.session_store import Session, create_session, get_session
+from src.api.session_store import create_session, get_session
 from src.graph.state import TripState
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])

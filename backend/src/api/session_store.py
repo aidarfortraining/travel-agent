@@ -9,7 +9,6 @@ import logging
 import time
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
 from src.graph.state import TripState
 
@@ -28,8 +27,10 @@ class Session:
     awaiting_input: dict | None = None  # payload of last interrupt() if graph is paused
 
     async def emit(self, event: dict) -> None:
+        # put_nowait so a stalled / disconnected SSE consumer can never block the graph
+        # task. await put() would wait forever on a full queue and never raise QueueFull.
         try:
-            await self.events.put(event)
+            self.events.put_nowait(event)
         except asyncio.QueueFull:
             log.warning("event queue full for session %s, dropping event", self.session_id)
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 import time
 from datetime import date
-from typing import Literal
 
 import httpx
 from mcp.server.fastmcp import FastMCP

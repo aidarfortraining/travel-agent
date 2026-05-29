@@ -1,9 +1,7 @@
 """Node 11: generate_plan — LLM-generates structured markdown plan via Skill."""
 from __future__ import annotations
 
-import json
 import logging
-import re
 
 from src.graph.state import TripState
 from src.llm.client import ainvoke_text

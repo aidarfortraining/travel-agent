@@ -6,9 +6,7 @@ tests that don't touch embeddings can run without the package installed.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
-from typing import Iterable
 
 from src.config import settings
 

@@ -5,7 +5,6 @@ Exits 0 on full success, 1 if any check failed.
 """
 from __future__ import annotations
 
-import asyncio
 import sys
 from pathlib import Path
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import os
 import sys
@@ -19,7 +18,7 @@ sys.path.insert(0, str(ROOT))
 # Force eval mode BEFORE importing graph builder
 os.environ["EVAL_MODE"] = "true"
 
-from langsmith import Client, evaluate  # noqa: E402
+from langsmith import evaluate  # noqa: E402
 
 from evals.judges import constraint_adherence_evaluator, faithfulness_evaluator  # noqa: E402
 from src.graph.builder import build_graph_uncached  # noqa: E402

@@ -1,7 +1,7 @@
 """Place schema — POI from OSM via travel-tools MCP server."""
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Place(BaseModel):

@@ -3,10 +3,9 @@ from __future__ import annotations
 
 import logging
 import re
-from datetime import datetime, timezone
 
 from src.graph.state import TripState
-from src.schemas import EditIntent, EditRecord, Plan
+from src.schemas import EditIntent, Plan
 
 log = logging.getLogger(__name__)
 

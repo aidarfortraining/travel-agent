@@ -1,4 +1,4 @@
-"""LangGraph builder. Wires 15 nodes, 3 branches, 2 loops, 2 HITL interrupts."""
+"""LangGraph builder. Wires 14 nodes, 3 branches, 2 loops, 2 HITL interrupts."""
 from __future__ import annotations
 
 import asyncio

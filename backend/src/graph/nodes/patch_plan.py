@@ -311,7 +311,10 @@ def _render_markdown(
     return "\n".join(parts)
 
 
-_NOOP_NOTICE_RE = re.compile(r"^> _Правка[^\n]*_\n\n", flags=re.MULTILINE)
+# Matches any prior italic-blockquote notice we prepend (no-op or parse-failed) so
+# repeated edits don't stack notices. Plan blockquotes (weather/transport) don't use
+# the leading `_`, so this won't strip real content.
+_NOOP_NOTICE_RE = re.compile(r"^> _[^\n]*_\n\n", flags=re.MULTILINE)
 
 
 def _prepend_noop_notice(markdown: str, intent: EditIntent) -> str:
@@ -320,6 +323,13 @@ def _prepend_noop_notice(markdown: str, intent: EditIntent) -> str:
     clean = _NOOP_NOTICE_RE.sub("", markdown, count=1)
     label = intent.raw_text or intent.target
     return f"> _Правка «{label}» не нашла совпадений — план оставлен без изменений._\n\n{clean}"
+
+
+def _prepend_parse_failed_notice(markdown: str, intent: EditIntent) -> str:
+    """Distinct from no-op: the edit couldn't be parsed (transient LLM failure)."""
+    clean = _NOOP_NOTICE_RE.sub("", markdown, count=1)
+    label = intent.raw_text or intent.target
+    return f"> _Не удалось разобрать правку «{label}» — попробуйте переформулировать._\n\n{clean}"
 
 
 async def _recompute_cost(plan: Plan, prev: CostBreakdown | None) -> CostBreakdown | None:
@@ -338,6 +348,25 @@ async def patch_plan(state: TripState) -> dict:
         return {"last_node": "patch_plan"}
     record = state.edit_history[-1]
     intent = record.intent
+
+    # The LLM failed to parse this edit (not a no-match). Keep the plan and tell the
+    # user to rephrase, rather than running a placeholder action that reads as broken.
+    if record.notes == "parse_failed":
+        new_markdown = (
+            _prepend_parse_failed_notice(state.plan_markdown, intent)
+            if state.plan_markdown else state.plan_markdown
+        )
+        updated = record.model_copy(update={"applied": False, "notes": "parse_failed; not applied"})
+        return {
+            "last_node": "patch_plan",
+            "plan": state.plan,
+            "plan_markdown": new_markdown,
+            "plan_cost_breakdown": state.plan_cost_breakdown,
+            "edit_history": list(state.edit_history[:-1]) + [updated],
+            "pending_edit_text": None,
+            "accept_signal": False,
+        }
+
     new_plan = state.plan
     notes = "no-op"
     changed = 0

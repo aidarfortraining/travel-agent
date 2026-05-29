@@ -59,6 +59,16 @@ export async function acceptPlan(sessionId: string) {
   return jsonReq(`/sessions/${sessionId}/accept`, { method: "POST" });
 }
 
+export async function adjustBudget(
+  sessionId: string,
+  body: { accept_reduced?: boolean; new_budget_usd?: number },
+) {
+  return jsonReq(`/sessions/${sessionId}/adjust-budget`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export async function getSessionState(sessionId: string) {
   return jsonReq<SessionState>(`/sessions/${sessionId}/state`);
 }

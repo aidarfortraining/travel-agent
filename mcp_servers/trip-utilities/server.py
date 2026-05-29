@@ -37,7 +37,7 @@ SOFT_VEGETARIAN_CUISINES = {"indian", "mediterranean"}
 
 @mcp.tool()
 async def convert_currency(amount: float, from_ccy: str, to_ccy: str) -> dict:
-    """Convert amount via exchangerate.host. Cached in-memory for 1 hour."""
+    """Convert amount via the Frankfurter API (ECB rates, no key). Cached in-memory for 1 hour."""
     try:
         from_ccy = from_ccy.upper()
         to_ccy = to_ccy.upper()
@@ -57,7 +57,10 @@ async def convert_currency(amount: float, from_ccy: str, to_ccy: str) -> dict:
             rate = cached[1]
             rate_date = cached[2]
         else:
-            async with httpx.AsyncClient(timeout=10.0) as cli:
+            # follow_redirects: frankfurter.app now 301-redirects to frankfurter.dev
+            # (Cloudflare). httpx defaults to NOT following, so without this the GET
+            # returns the 301 HTML body and r.json() raises -> tool always errored.
+            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as cli:
                 r = await cli.get(FX_URL, params={"from": from_ccy, "to": to_ccy})
                 r.raise_for_status()
                 data = r.json()

@@ -85,9 +85,15 @@ async def _geocode_city(city: str) -> tuple[float, float] | None:
 
 
 async def _overpass_query(query: str) -> dict:
-    """POST to Overpass with retry across mirrors. Backs off on 429/5xx/timeouts."""
+    """POST to Overpass with retry across mirrors. Backs off on 429/5xx/timeouts.
+
+    Per-request timeout is kept tight (15s): a degraded mirror should fail fast so
+    the next mirror / retry fits inside the caller's overall budget, rather than
+    blocking 30s per attempt. Healthy Overpass responses for these bbox queries
+    return well under 15s.
+    """
     last_exc: Exception | None = None
-    async with httpx.AsyncClient(timeout=30.0, headers={"User-Agent": USER_AGENT}) as cli:
+    async with httpx.AsyncClient(timeout=15.0, headers={"User-Agent": USER_AGENT}) as cli:
         for attempt in range(5):
             url = OVERPASS_MIRRORS[attempt % len(OVERPASS_MIRRORS)]
             try:

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   acceptPlan,
+  adjustBudget,
   createSession,
   getSessionState,
   submitEdit,
@@ -23,6 +24,7 @@ export default function App() {
   const [sessionState, setSessionState] = useState<SessionState | null>(null);
   const [streamKey, setStreamKey] = useState(0);
   const [lastInput, setLastInput] = useState<TripInput | null>(null);
+  const [newBudget, setNewBudget] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -104,12 +106,34 @@ export default function App() {
     setStreamKey((k) => k + 1);
   }
 
+  // Resume the graph after the budget HITL interrupt. Without this the graph stays
+  // paused at explain_and_ask forever and the UI is stuck on "В работе…".
+  async function handleAdjustBudget(newBudget?: number) {
+    if (!sessionId) return;
+    await adjustBudget(
+      sessionId,
+      newBudget ? { accept_reduced: false, new_budget_usd: newBudget } : { accept_reduced: true },
+    );
+    setStreamEnabled(true);
+    setStreamKey((k) => k + 1);
+  }
+
   const planMd = sessionState?.plan_markdown;
   const status = sessionState?.status || "draft";
   const finalized = status === "finalized";
   const awaitingEdit =
     sessionState?.awaiting_input?.type === "review_plan" || (closed && !!planMd && !finalized);
   const stillRunning = streamEnabled && !closed;
+
+  // Budget HITL: derive from the persisted state (resilient if SSE dropped) or the
+  // live interrupt event. When present, the graph is paused awaiting the user's call.
+  const budgetInterrupt =
+    sessionState?.awaiting_input?.type === "budget_explain"
+      ? (sessionState.awaiting_input as { type: string; message?: string })
+      : lastInterrupt?.type === "interrupt" && lastInterrupt.payload?.type === "budget_explain"
+        ? (lastInterrupt.payload as { type: string; message?: string })
+        : null;
+  const budgetPaused = !!budgetInterrupt && !planMd && !stillRunning;
 
   const step = !submitted ? 0 : finalized ? 3 : planMd ? 2 : 1;
 
@@ -147,14 +171,40 @@ export default function App() {
 
         {submitted && <GraphProgress events={events} closed={closed} />}
 
-        {lastInterrupt && lastInterrupt.type === "interrupt" && lastInterrupt.payload?.type === "budget_explain" && (
-          <div className="bg-amber-50 border border-amber-300 rounded p-4">
+        {budgetPaused && (
+          <div className="bg-amber-50 border border-amber-300 rounded p-4 space-y-3">
             <p className="text-sm text-amber-900 font-medium">⚠ Бюджет</p>
-            <p className="text-sm text-amber-900 mt-1">{(lastInterrupt.payload as any).message}</p>
-            <p className="text-xs text-amber-700 mt-2">
-              Граф автоматически продолжит с уменьшенным scope. Если хотите задать другой бюджет — измените форму и
-              начните заново.
+            <p className="text-sm text-amber-900">{budgetInterrupt?.message}</p>
+            <p className="text-xs text-amber-700">
+              Выберите, как продолжить: оставить заявленный бюджет (план соберём с упором на бесплатные
+              альтернативы) или задать новый.
             </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleAdjustBudget()}
+                className="text-sm font-medium text-white bg-amber-600 hover:bg-amber-700 rounded px-3 py-1.5 transition"
+              >
+                Продолжить с уменьшенным scope
+              </button>
+              <span className="text-amber-700 text-sm">или</span>
+              <input
+                type="number"
+                min={0}
+                value={newBudget}
+                onChange={(e) => setNewBudget(e.target.value)}
+                placeholder="новый бюджет, $"
+                className="w-40 text-sm border border-amber-300 rounded px-2 py-1.5 bg-white"
+              />
+              <button
+                type="button"
+                disabled={!newBudget || Number(newBudget) <= 0}
+                onClick={() => handleAdjustBudget(Number(newBudget))}
+                className="text-sm font-medium text-amber-900 border border-amber-400 rounded px-3 py-1.5 hover:bg-amber-100 disabled:opacity-50 transition"
+              >
+                Пересчитать с новым бюджетом
+              </button>
+            </div>
           </div>
         )}
 

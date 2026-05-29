@@ -29,6 +29,9 @@ dist/
 *.log
 npm-debug.log*
 yarn-debug.log*
+# tsc -b build cache + any transpiled output leaked into the TS-only src
+*.tsbuildinfo
+frontend/src/**/*.js
 
 # IDE
 .vscode/

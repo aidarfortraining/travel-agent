@@ -10,13 +10,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Это учебный проект.** Цель — научиться использовать LLM-стек (LangGraph, MCP, RAG, evals), а не построить продакшен-сервис.
 
-**Статус кода:** проект **реализован и протестирован**. Stack поднимается через `docker compose up`, e2e-флоу (форма → план → правка → accept → PDF) проверен через Playwright, evals A/B прогнан (`evals/results/ab_mini_41_vs_4o.md`). Список фиксов из последнего цикла отладки — в "Известных ловушках" ниже.
+**Статус кода:** проект **реализован и протестирован**. Stack поднимается через `docker compose up`, e2e-флоу (форма → план → правка → accept → PDF) проверен через Playwright (ad-hoc прогон через Playwright MCP — НЕ настроенный test runner: во `frontend/package.json` нет `npm test`, vitest или playwright-зависимости), evals A/B прогнан (`evals/results/ab_mini_41_vs_4o.md`). Список фиксов из последнего цикла отладки — в "Известных ловушках" ниже.
 
 ## Архитектура (краткий снимок)
 
 Три процессных границы, поднимаются одним `docker compose up`:
 
-- **Backend** (`backend/`, FastAPI + LangGraph) — оркестрация графа из 14 нод (3 ветвления, 2 цикла, 2 HITL-прерывания через `interrupt()` в `explain_and_ask` и `present_plan`), AsyncSqliteSaver checkpointing, SSE для live-прогресса в UI.
+- **Backend** (`backend/`, FastAPI + LangGraph) — оркестрация графа из 14 нод (3 ветвления, 2 цикла, 2 HITL-прерывания через `interrupt()` в `explain_and_ask` и `present_plan`), AsyncSqliteSaver checkpointing, SSE для live-прогресса в UI. `src/main.py` монтирует 4 роутера из `src/api/`: `sessions`, `stream` (SSE), `photo` (vision upload), `export` (PDF).
 - **3 MCP-сервера** (`mcp_servers/`, stdio-subprocess'ы backend'а, НЕ отдельные docker-сервисы): `travel-tools` (Overpass/Open-Meteo/OSRM, 4 tools), `city-knowledge` (Qdrant wrapper, 3 tools), `trip-utilities` (currency/cost/dietary, 3 tools). Подключаются через `MultiServerMCPClient` из `langchain-mcp-adapters`. `docker-compose.yml` определяет только qdrant + backend + frontend; MCP-серверы спавнятся как subprocess'ы backend'а при первом запросе (см. `mcp_clients/client.py`).
 - **Frontend** (`frontend/`, Vite + React 19) — форма (react-hook-form + zod), SSE-прогресс по нодам, view плана, PDF download.
 
@@ -29,6 +29,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **Pydantic-границы:** все state-модели в `backend/src/schemas/`. MCP-серверы — отдельные процессы и **не импортируют** этот пакет; они дублируют pydantic-классы локально в `mcp_servers/<name>/schemas.py`. На границе MCP передаётся JSON, идентичность Python-классов не нужна.
 
 **LangSmith** трассирует всё автоматически через env (`LANGSMITH_TRACING=true`) — изменения в коде графа не требуются.
+
+**Каталоги репо:** `sessions/`, `checkpoints/`, `qdrant_storage/` — gitignored runtime-состояние (НЕ исходники, можно удалять для чистого старта). `project-spec/` — legacy course material; актуальная спека — `docs/PROJECT_SPEC.md`, не путать.
 
 **`EVAL_MODE=true`** обходит HITL-прерывания в `explain_and_ask` и `present_plan` — критично для автопрогона evals, иначе `langsmith.evaluate` зависнет на `interrupt()`. В EVAL_MODE `explain_and_ask` дополнительно ставит `state.budget_acknowledged=True` чтобы `budget_check` на следующем проходе не выставил предупреждение повторно (иначе бесконечный цикл `explain_and_ask → city_research → candidate_places → budget_check → explain_and_ask`).
 
@@ -54,7 +56,7 @@ cd backend && uv run uvicorn src.main:app --reload
 cd frontend && npm run dev
 
 # Тесты
-pytest backend/tests/                 # граф smoke + patch_plan + PDF + RAG (12 тестов)
+pytest backend/tests/                 # граф smoke + patch_plan + PDF + RAG (13 тестов)
 pytest mcp_servers/                   # все 3 MCP-сервера; сетевые тесты skipped по умолчанию —
                                       # SKIP_NETWORK_TESTS=0 pytest mcp_servers/travel-tools/tests/
 pytest backend/tests/test_graph_smoke.py::test_state_imports   # одиночный тест

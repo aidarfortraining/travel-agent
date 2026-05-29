@@ -23,6 +23,10 @@ async def parse_edit_intent(state: TripState) -> dict:
         temperature=0.1,
         max_tokens=512,
     )
+    # A None result means the LLM parse itself failed (rate-limit / transient), NOT
+    # that the edit was invalid. Flag it so patch_plan shows "couldn't parse" rather
+    # than silently coercing to a constrain no-op that reads as "edits don't work".
+    parse_failed = intent is None
     if intent is None:
         intent = EditIntent(action="constrain", target=text[:60], detail=None, raw_text=text)
     if not intent.raw_text:
@@ -31,7 +35,7 @@ async def parse_edit_intent(state: TripState) -> dict:
         timestamp=datetime.now(timezone.utc).isoformat(),
         intent=intent,
         applied=False,
-        notes="parsed",
+        notes="parse_failed" if parse_failed else "parsed",
     )
     history = list(state.edit_history) + [record]
     return {

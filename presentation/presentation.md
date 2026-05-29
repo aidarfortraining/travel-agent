@@ -29,19 +29,49 @@
 
 ---
 
-## User flow — форма
+## User flow — 5 шагов
 
-![Form screenshot](progress-fixed.png)
+1. **Форма** — город, дни, бюджет, интересы, dietary; опционально фото места.
+2. **Прогресс (SSE)** — live-статус по нодам графа в реальном времени.
+3. **Готовый план** — реальные POI, halal-маркеры, погода, бюджет, источники.
+4. **Правка** — текстом в свободной форме; точечный патч, не перегенерация.
+5. **Accept → PDF** — финализация и экспорт.
 
-Vite + React 19 + Tailwind + shadcn/ui. Валидация zod, SSE-прогресс по нодам графа.
+Stack фронта: Vite + React 19 + Tailwind + shadcn/ui, валидация zod.
 
 ---
 
-## User flow — готовый план
+## Шаг 1 — Форма ввода
 
-![Plan screenshot](plan-rendered.png)
+![Форма ввода](flow-form.png)
 
-Погода (Open-Meteo), halal-маркеры 🟢, переходы между точками, OSM-ссылки на каждое место, таблица сводного бюджета, источники (Wikivoyage + OSM).
+Город, дни, бюджет, интересы и dietary — chips с мультивыбором. Опционально — фото места (Vision определит landmark). Валидация на клиенте через zod.
+
+---
+
+## Шаг 2 — Прогресс по нодам (SSE)
+
+![SSE-прогресс по нодам графа](flow-progress.png)
+
+Бэкенд стримит статус каждой ноды графа через Server-Sent Events — пользователь видит, что агент делает прямо сейчас. Параллельно фронт поллит `/state` каждые 3с как resilient fallback.
+
+---
+
+## Шаг 3 — Готовый план
+
+![Готовый план](flow-plan.png)
+
+Погода (Open-Meteo), переходы между точками, OSM-ссылки на каждое место, длительность и стоимость. Ниже по плану — halal-маркеры, таблица сводного бюджета и источники (Wikivoyage + OSM).
+
+---
+
+## Шаг 4-5 — Правка и экспорт
+
+**Правка в свободной форме** («убери музеи», «добавь халяль»):
+
+`parse_edit_intent` (structured output) → `patch_plan` — точечный патч, а не перегенерация; rich-markdown (погода, маркеры, бюджет) сохраняется.
+
+**Accept** → `finalize_and_export` → PDF через weasyprint.
 
 ---
 
@@ -139,7 +169,7 @@ city_research → candidate_places → budget_check ──{feasible?}─► clus
 2. Каждое место — ссылка на OSM или Wikivoyage.
 3. Цены/часы — только из tool-output, нет — пиши «не указано».
 4. Dietary: ресторан без `dietary_confidence >= 0.5` не попадает в план.
-5. Превышение бюджета — явный ⚠ маркер в конце дня.
+5. Превышение бюджета — явный маркер-предупреждение в конце дня.
 
 Skill — это **контракт между LLM и UI**: гарантирует консистентность markdown во всех путях рендеринга.
 
@@ -175,7 +205,7 @@ city-knowledge.search_city_guide(city, query, section?)
 1. Frontend: `PhotoUpload.tsx` → POST `/sessions/{id}/photo` (multipart, ≤ 5MB).
 2. Бекенд: base64 → `gpt-4.1-mini` (vision-режим, тот же mini что и для plan-генерации).
 3. Output: `PhotoAnalysis { landmark, city, place_type, description, confidence }`.
-4. Если `confidence >= 0.6` — landmark добавляется как обязательный пункт плана через `enrich_input`.
+4. `enrich_input`: `place_type` фото добавляется в интересы; если `confidence >= 0.7` и город не задан — город берётся из фото. `photo_analysis` уходит в контекст `generate_plan`.
 
 Демо: фото Голубой Мечети → `{landmark: "Blue Mosque", city: "Istanbul", confidence: 0.95}`.
 
@@ -236,31 +266,14 @@ city-knowledge.search_city_guide(city, query, section?)
 - `temperature=0.7` для генерации плана (нужен креатив в описаниях; факты приходят из RAG)
 - `temperature=0.1` для intent parsing (structured output)
 - `temperature=0.0` для LLM-as-judge (воспроизводимость)
-- `max_tokens=4096` для плана, `512` для intent
-- `top_p=0.95`, ретраи через tenacity (3 попытки, base 1s)
+- `max_tokens=4096` для плана, `512` для intent и vision
+- Ретраи через tenacity: 3 попытки, exponential backoff 1→10s (только на 429/5xx)
 
 **Resilience patterns:**
 - Overpass: 5 попыток × 3 зеркала с backoff
 - SSE: polling-fallback на `/state` каждые 3с, `X-Accel-Buffering: no` для nginx
 - LangGraph: `AsyncSqliteSaver` checkpointing — можно возобновить с любого interrupt
 - Бюджет HITL: флаг `budget_acknowledged` разрывает loop `explain_and_ask ↔ budget_check`
-
----
-
-## What I'd do next
-
-**Следующие шаги:**
-1. **Fallback на gpt-4.1 (full)** при низкой confidence — для сложных случаев когда mini галлюцинирует
-2. **bge-reranker** поверх Qdrant — ожидаемый +5–10% к faithfulness
-3. **Расширение RAG до 10–15 городов** + автоматический индекс новых из user-запросов
-4. **Multi-day weather optimization** — если день дождливый, сместить outdoor activities на сухой
-5. **Render deploy** — публичный URL для демо
-
-**Что осознанно НЕ делал:**
-- Auth / user accounts (sessions анонимные)
-- CI/CD (учебный scope)
-- Semantic cache (mini-модель дешёвая, не нужно)
-- Voice / audio (out of scope)
 
 ---
 

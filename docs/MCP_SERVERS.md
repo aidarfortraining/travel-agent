@@ -92,7 +92,7 @@ area["name:en"="Istanbul"]->.searchArea;
 out center 30;
 ```
 
-**Resilience — `_overpass_query`:** main endpoint (`overpass-api.de`) регулярно отдаёт 504/502. Запросы крутятся в 5 попыток через 3 зеркала с экспоненциальным backoff:
+**Resilience — `_overpass_query`:** main endpoint (`overpass-api.de`) регулярно отдаёт 504/502. Запросы крутятся в 5 попыток через 3 зеркала с экспоненциальным backoff (per-request timeout — 15s: деградировавшее зеркало отваливается быстро, чтобы следующая попытка укладывалась в общий тайм-бюджет ноды `candidate_places`):
 
 ```python
 OVERPASS_MIRRORS = [
@@ -367,8 +367,11 @@ async def convert_currency(
 ) -> CurrencyConversion:
     """
     Convert amount between currencies using current exchange rate.
-    Uses frankfurter.app (free, ECB-sourced rates, no API key).
-    
+    Uses the Frankfurter API (free, ECB-sourced rates, no API key).
+    NB: frankfurter.app сейчас 301-редиректит на frankfurter.dev, поэтому
+    httpx-клиент создаётся с follow_redirects=True (иначе r.json() падает на
+    HTML-теле редиректа и tool всегда возвращает EXTERNAL_API_ERROR).
+
     Cached in-memory for 1 hour to reduce API calls.
     """
 ```

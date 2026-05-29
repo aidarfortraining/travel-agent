@@ -129,7 +129,7 @@ LangSmith подключается через env-переменные (`LANGSMI
 | 3 | `vision_identify` | async | gpt-4.1-mini (vision) | — | — |
 | 4 | `enrich_input` | sync | — | — | state merge |
 | 5 | `city_research` | async | — | city-knowledge.search_city_guide + city-knowledge.get_city_overview | Qdrant queries |
-| 6 | `candidate_places` | async | — | travel-tools | External APIs |
+| 6 | `candidate_places` | async | — | travel-tools | External APIs (concurrent fan-out, 75s budget) |
 | 7 | `budget_feasible` branch | sync | — | trip-utilities.estimate_plan_cost | — |
 | 8 | `explain_and_ask` | async + HITL | gpt-4.1-mini | — | `interrupt()` |
 | 9 | `cluster_by_day` | sync | — | — | sklearn KMeans |
@@ -489,6 +489,10 @@ config.py (env)
 **Важно про `budget_acknowledged`:** без этого флага EVAL_MODE уходит в бесконечный цикл. Цепочка `explain_and_ask → city_research → candidate_places → budget_check → (warning снова) → explain_and_ask` повторяется бесконечно, потому что `candidate_places` детерминированно возвращает те же дорогие места. Флаг разрывает цикл: `budget_check` на втором проходе видит `budget_acknowledged=True` и сразу возвращает `budget_warning=None`, что заставляет `budget_feasible` уйти в `cluster_by_day`.
 
 В production режиме (`EVAL_MODE=false`) — нормальные HITL прерывания, граф ждёт пользователя через `aresume`. Production-ветка `explain_and_ask` тоже ставит `budget_acknowledged=True` после `decision` от пользователя, чтобы logical behavior был одинаковый в обоих режимах.
+
+**Резюм бюджетного прерывания (UI):** на `budget_explain` фронт показывает блок с кнопками «продолжить с уменьшенным scope» / «пересчитать с новым бюджетом» → `POST /sessions/{id}/adjust-budget` → `resume_run(Command(resume=...))`. Без этого граф навсегда остаётся на паузе. Блок выводится как из live-`interrupt`-события, так и из `awaiting_input` в `/state` (resilient к обрыву SSE).
+
+**Потребление `astream` в `api/runner.py`:** на `__interrupt__` нода НЕ делает ранний `return` из `async for` — это бросало бы генератор недоиспользованным, и `GeneratorExit` при его закрытии на GC всплывал бы в трейсе LangSmith. Вместо этого ставится флаг, цикл завершается естественно (astream сам отдаёт `StopAsyncIteration` сразу после `__interrupt__`), а в `finally` вызывается `stream.aclose()` — на случай отмены задачи (обрыв SSE).
 
 ## Что осознанно НЕ делаем
 

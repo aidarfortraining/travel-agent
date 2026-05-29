@@ -31,7 +31,7 @@
 
 ## User flow — форма
 
-![Form screenshot](../progress-fixed.png)
+![Form screenshot](progress-fixed.png)
 
 Vite + React 19 + Tailwind + shadcn/ui. Валидация zod, SSE-прогресс по нодам графа.
 
@@ -39,7 +39,7 @@ Vite + React 19 + Tailwind + shadcn/ui. Валидация zod, SSE-прогре
 
 ## User flow — готовый план
 
-![Plan screenshot](../plan-rendered.png)
+![Plan screenshot](plan-rendered.png)
 
 Погода (Open-Meteo), halal-маркеры 🟢, переходы между точками, OSM-ссылки на каждое место, таблица сводного бюджета, источники (Wikivoyage + OSM).
 
@@ -266,7 +266,7 @@ city-knowledge.search_city_guide(city, query, section?)
 
 ## Спасибо
 
-**Trip Planner** — github.com/[your-repo]
+**Trip Planner** — github.com/aidarfortraining/travel-agent
 
 Demo: `docker compose up` → http://localhost:5173
 

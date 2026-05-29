@@ -48,7 +48,7 @@ qdrant_storage/
 
 # Generated
 *.pdf
-!docs/presentation.pdf
+!presentation/presentation.pdf
 sessions/
 uploads/
 __pyfiles__/

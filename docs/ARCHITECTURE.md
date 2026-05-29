@@ -137,7 +137,7 @@ LangSmith подключается через env-переменные (`LANGSMI
 | 11 | `generate_plan` | async | gpt-4.1-mini + Skill | trip-utilities.estimate_plan_cost | — |
 | 12 | `present_plan` | HITL | — | — | `interrupt()` |
 | 13 | `parse_edit_intent` | async | gpt-4.1-mini | — | structured output |
-| 14 | `patch_plan` | sync | — | — | state patch |
+| 14 | `patch_plan` | async | gpt-4.1-mini + Skill | trip-utilities.estimate_plan_cost, travel-tools.find_places | state patch + LLM rerender |
 | 15 | `finalize_and_export` | async | gpt-4.1-mini + Skill | — | PDF generation |
 
 ### State schema (pydantic)
@@ -156,10 +156,10 @@ class PhotoAnalysis(BaseModel):
     confidence: float        # 0.0–1.0
 
 class EditIntent(BaseModel):
-    """Structured output of parse_edit_intent node (Flash, JSON mode)."""
+    """Structured output of parse_edit_intent node (gpt-4.1-mini, structured output)."""
     action: Literal["remove", "add", "replace", "constrain"]
-    target: str              # e.g., "museums", "alcohol-focused venues", "Day 2 morning"
-    detail: str | None       # e.g., "halal", "cheaper option", "more food"
+    target: str              # what is affected; for "replace" — the thing being removed
+    detail: str | None       # for "replace" — the replacement; for "constrain" — the "$N" cap
     raw_text: str            # Original user message verbatim
 
 class EditRecord(BaseModel):
@@ -320,7 +320,8 @@ trip-planner/
 │       ├── main.tsx
 │       ├── App.tsx
 │       ├── components/
-│       │   ├── TripForm.tsx
+│       │   ├── Stepper.tsx          # step nav: Параметры→Генерация→Просмотр→Готово
+│       │   ├── TripForm.tsx         # accepts initialValues for prefill on "back"
 │       │   ├── PhotoUpload.tsx
 │       │   ├── GraphProgress.tsx    # SSE-driven progress
 │       │   ├── PlanView.tsx
@@ -395,11 +396,30 @@ React form → POST /sessions/{id}/input
 
 ```
 React edit input → POST /sessions/{id}/edit
-  → FastAPI resumes graph from present_plan interrupt
-  → parse_edit_intent (Flash) → patch_plan → loop back to present_plan
+  → FastAPI resumes graph from present_plan interrupt (Command(resume={accept:false, edit}))
+  → parse_edit_intent (gpt-4.1-mini, structured) → patch_plan → loop back to present_plan
   → SSE emits events
   → React re-renders patched plan
 ```
+
+`parse_edit_intent` превращает свободный текст в `EditIntent{action, target, detail}`.
+`patch_plan` применяет правку к структурному `Plan`, затем **пере-рендерит rich-markdown через LLM**
+(`_rich_rerender`, промпты `EDIT_RERENDER_*` + тот же skill `itinerary-formatter`), чтобы сохранить
+halal-маркеры, описания, погоду, источники и таблицу бюджета. После правки пересчитывается
+`plan_cost_breakdown` через `estimate_plan_cost`.
+
+Действия:
+- `remove` — `_apply_remove`: выкидывает блоки, чья категория (`TimeBlock.notes`) матчит `target`
+  по стемам `REMOVE_KEYWORDS` («музе», «истори», …).
+- `constrain` — `_apply_constrain`: парсит лимит `$N` из `target`/`detail`, сбрасывает блоки сверх
+  дневного кэпа.
+- `add` — `_apply_add`: вставляет неиспользованного кандидата нужной категории; если в кандидатах
+  нет — фоллбэк на MCP `find_places`. Рестораны берутся только из уже загруженного набора.
+- `replace` — remove(`target`) + add(`detail`): убирает названное, добавляет замену.
+
+Если правка ничего не изменила (`changed==0`), исходный rich-markdown сохраняется, но сверху
+добавляется явная пометка «правка не нашла совпадений» (`_prepend_noop_notice`) — чтобы no-op не
+выглядел как сбой. На пустой LLM-ответ — детерминированный fallback `_render_markdown` (bare).
 
 ### 4. Принятие
 
@@ -409,6 +429,15 @@ React accept button → POST /sessions/{id}/accept
   → PDF generated, stored in session
   → React redirects to GET /sessions/{id}/pdf for download
 ```
+
+### 5. Навигация (frontend)
+
+`App.tsx` показывает `Stepper` (Параметры → Генерация → Просмотр и правки → Готово) и кнопку
+«← Изменить параметры». Шаг выводится из состояния: `!submitted→0`, `finalized→3`, `plan_markdown→2`,
+иначе `1`. «Назад» (`startOver`) создаёт **новую сессию** (чистый checkpoint-thread — повторный запуск
+на старом thread конфликтовал бы с сохранённым состоянием), сбрасывает прогресс/план и возвращает к
+форме, предзаполненной последним вводом (`TripForm initialValues`). Это единственный способ начать
+заново — граф вперёд-направленный, прыгать в запущенный/недостигнутый шаг нельзя.
 
 ## Зависимости между модулями (что от чего блокируется)
 

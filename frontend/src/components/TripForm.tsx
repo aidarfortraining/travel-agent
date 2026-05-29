@@ -19,9 +19,11 @@ type FormShape = z.infer<typeof schema>;
 export function TripForm({
   onSubmit,
   disabled,
+  initialValues,
 }: {
   onSubmit: (payload: TripInput) => void;
   disabled?: boolean;
+  initialValues?: Partial<TripInput>;
 }) {
   const {
     register,
@@ -30,7 +32,16 @@ export function TripForm({
     formState: { errors },
   } = useForm<FormShape>({
     resolver: zodResolver(schema),
-    defaultValues: { city: "Istanbul", days: 3, budget_usd: 300, interests: ["history", "food"], dietary: [] },
+    defaultValues: {
+      city: "Istanbul",
+      days: 3,
+      budget_usd: 300,
+      interests: ["history", "food"],
+      dietary: [],
+      // dietary values originate from the DIETARY enum buttons, so the loose
+      // string[] from TripInput is safe to narrow here.
+      ...(initialValues as Partial<FormShape>),
+    },
   });
 
   return (

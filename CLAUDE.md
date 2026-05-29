@@ -34,7 +34,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Команды
 
-Все команды — из корня репо.
+Все команды — из корня репо. Примеры ниже — в bash-синтаксисе. **Среда разработки — Windows PowerShell**, где inline-env-prefix (`EVAL_MODE=true python ...`) — синтаксическая ошибка: задавайте переменные отдельно (`$env:EVAL_MODE="true"; python evals/run.py`), а `cp` → `Copy-Item`. В Docker/WSL/git-bash bash-синтаксис работает как есть.
 
 ```bash
 # Setup
@@ -54,7 +54,7 @@ cd backend && uv run uvicorn src.main:app --reload
 cd frontend && npm run dev
 
 # Тесты
-pytest backend/tests/                 # граф smoke + patch_plan + PDF + RAG (10 тестов)
+pytest backend/tests/                 # граф smoke + patch_plan + PDF + RAG (12 тестов)
 pytest mcp_servers/                   # все 3 MCP-сервера; сетевые тесты skipped по умолчанию —
                                       # SKIP_NETWORK_TESTS=0 pytest mcp_servers/travel-tools/tests/
 pytest backend/tests/test_graph_smoke.py::test_state_imports   # одиночный тест
@@ -128,7 +128,7 @@ python evals/compare_experiments.py --a mini-41 --b mini-4o \
 - **Qdrant: `query_points` (не `.search()`), клиент запинен под server.** `qdrant-client` запинен на `>=1.11.0,<1.12.0` (в `backend/pyproject.toml` И `mcp_servers/city-knowledge/pyproject.toml`) под server-образ `qdrant/qdrant:v1.11.0` — совпадение major.minor убирает incompat-warning. Весь код (`city-knowledge/server.py` И `backend/src/rag/qdrant_client.py`) использует `query_points(query=vector, query_filter=..., limit=...)` + итерацию по `res.points` (НЕ по `res`). `.search()` удалён в qdrant-client ≥1.18 — при апгрейде клиента не возвращайтесь к нему. Версии server и client менять синхронно.
 - **LangGraph checkpoint serde — регистрация pydantic-типов.** `builder._checkpoint_serde()` навешивает `JsonPlusSerializer(allowed_msgpack_modules=...)` со списком всех моделей из `src.schemas` + `TripState` (собирается динамически из пакета). Без этого LangGraph пишет warning "Deserializing unregistered type … will be blocked in a future version". Новые модели в `src.schemas` покрываются автоматически — но модель состояния ВНЕ `src.schemas` нужно добавить вручную, иначе будущая версия LangGraph заблокирует её десериализацию (это strict-mode: незарегистрированный тип → ошибка, не warning).
 - **Overpass нестабилен:** main endpoint регулярно отдаёт 504. `mcp_servers/travel-tools/_overpass_query` крутит 5 попыток через 3 зеркала (`overpass-api.de`, `overpass.kumi.systems`, `overpass.private.coffee`) с экспоненциальным backoff. НЕ ходить в Overpass без этой обёртки.
-- **`patch_plan` сохраняет rich-markdown на no-op:** если правка не удалила ни одного блока (например `target="музеи"` для дня без музеев), `_render_markdown` НЕ перезаписывает `state.plan_markdown` — иначе богатый LLM-вывод (погода/halal-маркеры/таблица/источники) теряется. Контролируется счётчиком `changed` из `_apply_remove`/`_apply_constrain`.
+- **`patch_plan` рендерит правку через LLM, не bare-рендером:** при `changed>0` правка применяется к структурному `state.plan`, затем `_rich_rerender` прогоняет выживший план через LLM (промпты `EDIT_RERENDER_*`, тот же skill itinerary-formatter) — так сохраняются halal-маркеры/описания/источники/таблица бюджета. `_render_markdown` (bare) остался только как fallback на случай пустого LLM-ответа; после правки пересчитывается `plan_cost_breakdown` через `estimate_plan_cost`. При `changed==0` (ничего не совпало) markdown сохраняется, но сверху добавляется явная пометка «правка не нашла совпадений» (`_prepend_noop_notice`) — чтобы no-op не выглядел как «правка не работает». `action="add"` реализован (`_apply_add`): берёт неиспользованного кандидата нужной категории, с MCP-фоллбэком `find_places`. `action="replace"` = remove(`intent.target`) + add(`intent.detail`) — добавляет именно `detail` (замену) через `target_override`, иначе «вместо музея парк» добавит снова музей. Поэтому `patch_plan` теперь async (делает LLM + MCP вызовы).
 - **`patch_plan` matcher по `TimeBlock.notes`, не по `place_type`:** generate_plan кладёт `p.category` ("museum"/"historical"/"park"...) в `TimeBlock.notes`. `_apply_remove` берёт cat из notes (а не из `place_type="attraction"`) — иначе тюркские/иностранные названия типа "Müzesi" не матчатся. Ключи `REMOVE_KEYWORDS` — стемы ("музе", "истори"), а не точные слова — покрывает плюрали и инфлекции.
 - **EVAL_MODE бесконечный цикл (исправлено):** `explain_and_ask` в `EVAL_MODE` должен ставить `state.budget_acknowledged=True` (а не только `budget_warning=None`), иначе следующий `budget_check` повторит warning, и граф уйдёт в цикл `explain_and_ask → city_research → candidate_places → budget_check → explain_and_ask`. Production-ветки `explain_and_ask` тоже ставят флаг.
 - **`langsmith.evaluate()` не поддерживает async evaluators:** запускает их в `ThreadPoolExecutor` без event loop → `RuntimeError: no current event loop`. Sync-обёртки в `evals/judges/__init__.py` оборачивают `asyncio.run()`. НЕ передавать async-judge в `evaluate()` напрямую.
@@ -144,7 +144,7 @@ python evals/compare_experiments.py --a mini-41 --b mini-4o \
 - **`onerror` у EventSource не сигнал об окончании** — может срабатывать на промежуточные сбои. В `useGraphStream` обработчик `onerror` теперь no-op; `closed=true` выставляется ТОЛЬКО при явном `done`/`error`/`interrupt` событии от сервера. Дополнительно — фронт поллит `/state` каждые 3с как resilient fallback.
 - **`X-Accel-Buffering: no`** обязательно на SSE-ответе (`api/stream.py`) — без него nginx/cloud-LB могут буферизовать стрим и удерживать события.
 - **React StrictMode удалён** из `frontend/src/main.tsx` — в dev-режиме он дважды mount'ит компоненты, что создавало two parallel EventSource connections. В production это no-op, но удаление гарантирует одинаковое поведение.
-- **LangGraph + async:** граф запускается асинхронно (`await graph.ainvoke(...)`). Все I/O (LLM-вызовы, MCP-tool calls, HTTP) — async. Чистые CPU-bound функции (KMeans-кластеризация, patch_plan) могут быть sync — LangGraph поддерживает обе формы в одном графе.
+- **LangGraph + async:** граф запускается асинхронно (`await graph.ainvoke(...)`). Все I/O (LLM-вызовы, MCP-tool calls, HTTP) — async. Чистые CPU-bound функции (KMeans-кластеризация в `cluster_by_day`, `optimize_route`) могут быть sync — LangGraph поддерживает обе формы в одном графе. (`patch_plan` стал async — делает LLM-rerender + MCP cost.)
 - **Qdrant collections:** одна коллекция на все города с metadata-фильтром по `city`. НЕ создавать по коллекции на город. Vector dim = 1536 (`text-embedding-3-small`) — если меняете embedding-модель, коллекцию нужно пересоздать с новой размерностью.
 - **Path в скриптах:** `scripts/` и `evals/` используют auto-detect двух layout'ов: docker (`/app/src/...`) и local (`PROJECT_ROOT/backend/src/...`). НЕ хардкодить `PROJECT_ROOT / "backend"`.
 - **`verify_setup.py` использует `settings.mcp_servers_root` и `settings.skill_root`** для поиска файлов — это правильный путь для обоих layout'ов (в docker `/mcp_servers` смонтирован в корень, не в `/app/`).

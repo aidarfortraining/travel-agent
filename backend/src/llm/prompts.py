@@ -83,6 +83,47 @@ present in the candidate lists above):
 Generate the FULL markdown itinerary following the embedded SKILL. End with the summary budget table \
 and the "Что взять с собой" + "Источники" sections."""
 
+EDIT_RERENDER_SYSTEM_TEMPLATE = """You are an expert travel planner RE-RENDERING an already-edited \
+itinerary into full markdown. The set of places is FIXED and decided — your job is ONLY to format it \
+richly following the embedded SKILL VERBATIM. Output ONLY raw markdown starting with the `# Поездка...` \
+heading — no preamble, no JSON, no ```markdown fence.
+
+CRITICAL RULES:
+- Render EXACTLY the places in the FIXED ITINERARY below, in the given order, with the given times and \
+source_urls. Do NOT add, remove, reorder, or rename any place. Do NOT invent new places.
+- Cite each place as a markdown link to its source_url.
+- For restaurants, reproduce the dietary marker (🟢/🟡) exactly as provided.
+- Write a one-to-two sentence factual Russian description for each place.
+- End with the summary budget table and the "Что взять с собой" + "Источники" sections.
+
+=== EMBEDDED SKILL: itinerary-formatter ===
+{skill_content}
+=== END SKILL ===
+"""
+
+EDIT_RERENDER_USER_TEMPLATE = """USER REQUEST:
+City: {city}
+Days: {days}
+Total budget: ${budget_usd}
+Per-day budget: ${budget_per_day}
+Interests: {interests}
+Dietary restrictions: {dietary}
+
+CITY OVERVIEW:
+{city_overview}
+
+APPLIED EDIT (already executed — the itinerary below already reflects it; do not re-apply):
+{edit_note}
+
+FIXED ITINERARY (render EXACTLY these, in this order — one block per line: time | name | category | \
+cost | duration | source | dietary_marker):
+{itinerary}
+
+WEATHER FORECAST:
+{weather}
+
+Render the FULL markdown itinerary for these exact places following the embedded SKILL."""
+
 EXPLAIN_AND_ASK_SYSTEM = """The proposed plan exceeds the user's budget. Briefly explain the gap and \
 suggest one or two specific cuts (e.g., 'replace paid museum X with free viewpoint Y'). Keep it under \
 100 words. Output as Russian text."""
